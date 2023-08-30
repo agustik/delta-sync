@@ -28,7 +28,8 @@
   "exports": {
     "./*": {
       "import": "./src/server/index.mjs",
-      "require": "./dist/server/index.js"
+      "require": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
     },
     "./server": {
       "require": "./dist/server/index.js"
