@@ -17,7 +17,7 @@ const clientConfig = {
   assetNames: '[dir]/[name]',
   entryNames: '[name]',
   outbase: 'demo',
-  outdir: 'dist/client',
+  outdir: 'client',
   define: {
     'process.env.NODE_ENV': '"production"',
     global: 'window',
@@ -48,4 +48,4 @@ await esbuild.build(clientConfig);
 await esbuild.build(serverConfig);
 
 await fs.rename('dist/server/index.js', 'dist/server/index.cjs')
-await fs.rename('dist/client/index.js', 'dist/client/index.cjs')
+await fs.rename('client/index.js', 'client/index.cjs')

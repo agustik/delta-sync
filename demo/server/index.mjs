@@ -1,5 +1,5 @@
 import restify from 'restify';
-import DeltaSync from '../../src/delta-sync/server/index.mjs';
+import DeltaSync from '../../src/server/index.mjs';
 
 
 
