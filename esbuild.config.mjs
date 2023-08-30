@@ -19,6 +19,10 @@ const clientConfig = {
   entryNames: '[name]',
   outbase: 'demo',
   outdir: 'client',
+  format: 'cjs',
+  target: [
+    // 'browser',
+  ],
   define: {
     'process.env.NODE_ENV': '"production"',
     global: 'window',
