@@ -28,7 +28,7 @@
   "exports": {
     "./*": {
       "import": "./src/server/index.mjs",
-      "require": "./dist/server/index.cjs"
+      "require": "./dist/server/index.js"
     },
     "./client": {
       "browser": "./dist/client/index.cjs",
