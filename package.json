@@ -35,9 +35,9 @@
       "require": "./dist/server/index.js"
     },
     "./client": {
-      "browser": "./client/index.cjs",
+      "browser": "./client/index.js",
       "import": "./src/client/index.cjs",
-      "require": "./client/index.cjs"
+      "require": "./client/index.js"
     }
   }
 }
