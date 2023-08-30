@@ -30,6 +30,9 @@
       "import": "./src/server/index.mjs",
       "require": "./dist/server/index.js"
     },
+    "./server": {
+      "require": "./dist/server/index.js"
+    },
     "./client": {
       "browser": "./dist/client/index.cjs",
       "import": "./src/client/index.cjs",
