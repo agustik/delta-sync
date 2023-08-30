@@ -23,15 +23,17 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "@agustik",
+  "license": "LGPL-3.0-or-later",
   "exports": {
     ".": {
       "import": "./src/server/index.mjs",
       "require": "./dist/server/index.cjs"
     },
     "./client": {
-      "browser": "./dist/client/index.cjs"
+      "browser": "./dist/client/index.cjs",
+      "import": "./src/client/index.cjs",
+      "require": "./dist/client/index.cjs"
     }
   }
 }
