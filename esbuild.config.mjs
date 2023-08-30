@@ -44,7 +44,13 @@ const serverConfig = {
   bundle: true,
 }
 
+
+
+
 await esbuild.build(clientConfig);
 await esbuild.build(serverConfig);
 
-await fs.rename('dist/server/index.js', 'dist/server/index.cjs')
+
+await fs.writeFile('dist/server/package.json', JSON.stringify({
+  type: 'commonjs',
+}, null, 2))
