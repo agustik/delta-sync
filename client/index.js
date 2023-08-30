@@ -2280,7 +2280,7 @@ var DeltaSync = class {
         this.emittUpdate("complete", {
           file: this.file,
           message: "Operation is complete",
-          ratio: message.ratio
+          ratio: 0
         });
         return this.socket.close();
       }
@@ -2313,7 +2313,6 @@ var DeltaSync = class {
     });
     const content = await file.arrayBuffer();
     const chunks = message.required.map((chunkReq) => {
-      console.log("chunkreq", chunkReq);
       const offset = chunkReq.offset;
       const size = chunkReq.size;
       const end = offset + size;
@@ -2342,7 +2341,6 @@ var DeltaSync = class {
     chunks.map((chunk) => {
       buffer = appendBuffers(buffer, chunk.data);
     });
-    console.log("Got the buffer", buffer, buffer.byteLength);
     await this.sendMessage(header, buffer);
     this.emittUpdate("chunks", {
       file,
@@ -2436,7 +2434,6 @@ var DeltaSync = class {
       file: this.getFileInfo(),
       fingerprint
     };
-    console.log("Sending fingerprint to server", header);
     await this.sendMessage(header, false);
     this.emittUpdate("fingerprint", {
       file,

@@ -227,7 +227,7 @@ class SyncRequest {
 
     return {
       content: newFile,
-      ratio: (file.size / message.payload.length),
+      ratio: (file.size / response.payload.length),
     };
   }
 

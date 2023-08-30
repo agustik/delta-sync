@@ -257,7 +257,7 @@ var require_stream = __commonJS({
         objectMode: false,
         writableObjectMode: false
       });
-      ws.on("message", function message2(msg, isBinary) {
+      ws.on("message", function message(msg, isBinary) {
         const data = !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
         if (!duplex.push(data))
           ws.pause();
@@ -1580,9 +1580,9 @@ var require_receiver = __commonJS({
       }
     };
     module2.exports = Receiver2;
-    function error(ErrorCtor, message2, prefix, statusCode, errorCode) {
+    function error(ErrorCtor, message, prefix, statusCode, errorCode) {
       const err = new ErrorCtor(
-        prefix ? `Invalid WebSocket frame: ${message2}` : message2
+        prefix ? `Invalid WebSocket frame: ${message}` : message
       );
       Error.captureStackTrace(err, error);
       err.code = errorCode;
@@ -2165,10 +2165,10 @@ var require_event_target = __commonJS({
             callListener(handler, this, event);
           };
         } else if (type === "close") {
-          wrapper = function onClose(code, message2) {
+          wrapper = function onClose(code, message) {
             const event = new CloseEvent("close", {
               code,
-              reason: message2.toString(),
+              reason: message.toString(),
               wasClean: this._closeFrameReceived && this._closeFrameSent
             });
             event[kTarget] = this;
@@ -3100,29 +3100,29 @@ var require_websocket = __commonJS({
         const secWebSocketExtensions = res.headers["sec-websocket-extensions"];
         if (secWebSocketExtensions !== void 0) {
           if (!perMessageDeflate) {
-            const message2 = "Server sent a Sec-WebSocket-Extensions header but no extension was requested";
-            abortHandshake(websocket, socket, message2);
+            const message = "Server sent a Sec-WebSocket-Extensions header but no extension was requested";
+            abortHandshake(websocket, socket, message);
             return;
           }
           let extensions;
           try {
             extensions = parse2(secWebSocketExtensions);
           } catch (err) {
-            const message2 = "Invalid Sec-WebSocket-Extensions header";
-            abortHandshake(websocket, socket, message2);
+            const message = "Invalid Sec-WebSocket-Extensions header";
+            abortHandshake(websocket, socket, message);
             return;
           }
           const extensionNames = Object.keys(extensions);
           if (extensionNames.length !== 1 || extensionNames[0] !== PerMessageDeflate.extensionName) {
-            const message2 = "Server indicated an extension that was not requested";
-            abortHandshake(websocket, socket, message2);
+            const message = "Server indicated an extension that was not requested";
+            abortHandshake(websocket, socket, message);
             return;
           }
           try {
             perMessageDeflate.accept(extensions[PerMessageDeflate.extensionName]);
           } catch (err) {
-            const message2 = "Invalid Sec-WebSocket-Extensions header";
-            abortHandshake(websocket, socket, message2);
+            const message = "Invalid Sec-WebSocket-Extensions header";
+            abortHandshake(websocket, socket, message);
             return;
           }
           websocket._extensions[PerMessageDeflate.extensionName] = perMessageDeflate;
@@ -3155,9 +3155,9 @@ var require_websocket = __commonJS({
       }
       return tls.connect(options);
     }
-    function abortHandshake(websocket, stream, message2) {
+    function abortHandshake(websocket, stream, message) {
       websocket._readyState = WebSocket2.CLOSING;
-      const err = new Error(message2);
+      const err = new Error(message);
       Error.captureStackTrace(err, abortHandshake);
       if (stream.setHeader) {
         stream[kAborted] = true;
@@ -3523,23 +3523,23 @@ var require_websocket_server = __commonJS({
         const key = req.headers["sec-websocket-key"];
         const version2 = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
-          const message2 = "Invalid HTTP method";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 405, message2);
+          const message = "Invalid HTTP method";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 405, message);
           return;
         }
         if (req.headers.upgrade.toLowerCase() !== "websocket") {
-          const message2 = "Invalid Upgrade header";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+          const message = "Invalid Upgrade header";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
           return;
         }
         if (!key || !keyRegex.test(key)) {
-          const message2 = "Missing or invalid Sec-WebSocket-Key header";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+          const message = "Missing or invalid Sec-WebSocket-Key header";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
           return;
         }
         if (version2 !== 8 && version2 !== 13) {
-          const message2 = "Missing or invalid Sec-WebSocket-Version header";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+          const message = "Missing or invalid Sec-WebSocket-Version header";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
           return;
         }
         if (!this.shouldHandle(req)) {
@@ -3552,8 +3552,8 @@ var require_websocket_server = __commonJS({
           try {
             protocols = subprotocol.parse(secWebSocketProtocol);
           } catch (err) {
-            const message2 = "Invalid Sec-WebSocket-Protocol header";
-            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+            const message = "Invalid Sec-WebSocket-Protocol header";
+            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
             return;
           }
         }
@@ -3572,8 +3572,8 @@ var require_websocket_server = __commonJS({
               extensions[PerMessageDeflate.extensionName] = perMessageDeflate;
             }
           } catch (err) {
-            const message2 = "Invalid or unacceptable Sec-WebSocket-Extensions header";
-            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+            const message = "Invalid or unacceptable Sec-WebSocket-Extensions header";
+            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
             return;
           }
         }
@@ -3584,9 +3584,9 @@ var require_websocket_server = __commonJS({
             req
           };
           if (this.options.verifyClient.length === 2) {
-            this.options.verifyClient(info, (verified, code, message2, headers) => {
+            this.options.verifyClient(info, (verified, code, message, headers) => {
               if (!verified) {
-                return abortHandshake(socket, code || 401, message2, headers);
+                return abortHandshake(socket, code || 401, message, headers);
               }
               this.completeUpgrade(
                 extensions,
@@ -3688,27 +3688,27 @@ var require_websocket_server = __commonJS({
     function socketOnError() {
       this.destroy();
     }
-    function abortHandshake(socket, code, message2, headers) {
-      message2 = message2 || http.STATUS_CODES[code];
+    function abortHandshake(socket, code, message, headers) {
+      message = message || http.STATUS_CODES[code];
       headers = {
         Connection: "close",
         "Content-Type": "text/html",
-        "Content-Length": Buffer.byteLength(message2),
+        "Content-Length": Buffer.byteLength(message),
         ...headers
       };
       socket.once("finish", socket.destroy);
       socket.end(
         `HTTP/1.1 ${code} ${http.STATUS_CODES[code]}\r
-` + Object.keys(headers).map((h) => `${h}: ${headers[h]}`).join("\r\n") + "\r\n\r\n" + message2
+` + Object.keys(headers).map((h) => `${h}: ${headers[h]}`).join("\r\n") + "\r\n\r\n" + message
       );
     }
-    function abortHandshakeOrEmitwsClientError(server, req, socket, code, message2) {
+    function abortHandshakeOrEmitwsClientError(server, req, socket, code, message) {
       if (server.listenerCount("wsClientError")) {
-        const err = new Error(message2);
+        const err = new Error(message);
         Error.captureStackTrace(err, abortHandshakeOrEmitwsClientError);
         server.emit("wsClientError", err, socket, req);
       } else {
-        abortHandshake(socket, code, message2);
+        abortHandshake(socket, code, message);
       }
     }
   }
@@ -5148,17 +5148,17 @@ var require_err_helpers = __commonJS({
     var _messageWithCauses = (err, seen, skip) => {
       if (!isErrorLike(err))
         return "";
-      const message2 = skip ? "" : err.message || "";
+      const message = skip ? "" : err.message || "";
       if (seen.has(err)) {
-        return message2 + ": ...";
+        return message + ": ...";
       }
       const cause = getErrorCause(err);
       if (cause) {
         seen.add(err);
         const skipIfVErrorStyleCause = typeof err.cause === "function";
-        return message2 + (skipIfVErrorStyleCause ? "" : ": ") + _messageWithCauses(cause, seen, skipIfVErrorStyleCause);
+        return message + (skipIfVErrorStyleCause ? "" : ": ") + _messageWithCauses(cause, seen, skipIfVErrorStyleCause);
       } else {
-        return message2;
+        return message;
       }
     };
     var messageWithCauses = (err) => _messageWithCauses(err, /* @__PURE__ */ new Set());
@@ -8334,10 +8334,10 @@ var require_safe_stable_stringify = __commonJS({
         }
         if (value) {
           return (value2) => {
-            let message2 = `Object can not safely be stringified. Received type ${typeof value2}`;
+            let message = `Object can not safely be stringified. Received type ${typeof value2}`;
             if (typeof value2 !== "function")
-              message2 += ` (${value2.toString()})`;
-            throw new Error(message2);
+              message += ` (${value2.toString()})`;
+            throw new Error(message);
           };
         }
       }
@@ -9174,9 +9174,9 @@ function encodeMessage(obj) {
   obj._id = createId();
   return JSON.stringify(obj);
 }
-function splitChunksResponse(message2) {
-  const meta = message2.header.chunkMetadata;
-  const buffer = message2.payload;
+function splitChunksResponse(message) {
+  const meta = message.header.chunkMetadata;
+  const buffer = message.payload;
   let offset = 0;
   return meta.map((metadata) => {
     const end = offset + metadata.size;
@@ -9273,9 +9273,9 @@ var SyncRequest = class {
       }, payload);
     }
   }
-  async fileStatus(message2) {
+  async fileStatus(message) {
     const self = this;
-    const file = message2.header.file;
+    const file = message.header.file;
     const stat2 = await this.callbacks.statFile({
       file,
       params: self.params,
@@ -9342,18 +9342,18 @@ var SyncRequest = class {
     }
     return {
       content: newFile,
-      ratio: file.size / message.payload.length
+      ratio: file.size / response.payload.length
     };
   }
-  async compareFingerprint(message2) {
-    const file = message2.header.file;
+  async compareFingerprint(message) {
+    const file = message.header.file;
     const self = this;
     const content = await this.callbacks.loadFile({
       file,
       params: self.params,
       query: self.query
     });
-    const fingerprints = message2.header.fingerprint;
+    const fingerprints = message.header.fingerprint;
     const hashMap = {};
     fingerprints.hashes.forEach((value) => {
       hashMap[value.hash] = value;
@@ -9736,13 +9736,13 @@ var DeltaSync = class {
         headers: self.headers
       }, `New webscoket connection`);
       ws.on("error", log.error);
-      ws.on("message", (message2, isBinary) => {
+      ws.on("message", (message, isBinary) => {
         if (!isBinary)
           return log.error("Only binary messages supported", {
-            message: message2,
+            message,
             isBinary
           });
-        const data = messageParser(message2);
+        const data = messageParser(message);
         if (!ws.syncRequest) {
           ws.syncRequest = new sync_request_default({
             ws,

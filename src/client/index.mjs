@@ -105,7 +105,7 @@ class DeltaSync {
         this.emittUpdate('complete', {
           file: this.file,
           message: 'Operation is complete',
-          ratio: message.ratio,
+          ratio: 0,
         })
         return this.socket.close();
       }
@@ -145,7 +145,6 @@ class DeltaSync {
     });
     const content = await file.arrayBuffer();
     const chunks = message.required.map(chunkReq => {
-      console.log('chunkreq', chunkReq)
       const offset = chunkReq.offset;
       const size = chunkReq.size;
       const end = offset + size;
@@ -179,8 +178,6 @@ class DeltaSync {
     });
 
     // const payload = new ArrayBuffer(totalSize);
-
-    console.log('Got the buffer', buffer, buffer.byteLength)
     await this.sendMessage(header, buffer);
     this.emittUpdate('chunks',{
       file,
@@ -188,8 +185,6 @@ class DeltaSync {
       size: buffer.byteLength,
       count: chunks.length,
     });
-
-
   }
 
   async fileStatus(file) {
@@ -298,7 +293,6 @@ class DeltaSync {
       fingerprint,
     };
 
-    console.log('Sending fingerprint to server', header);
     await this.sendMessage(header, false);
 
     this.emittUpdate('fingerprint', {

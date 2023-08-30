@@ -53,7 +53,9 @@
         const upload = await new DeltaSync(file, {
           url: `/api/.delta-sync/${file.name}?foo=bar&d=${new Date()}`,
           updates: (event, data) => {
-            console.log('Got update event', event, data);
+            
+            if (event === 'complete') console.log(data);
+            // console.log('Got update event', event, data);
             item.textContent = `${name} - ${data.message}`;
           },
           getBufferStatus: (d) => {
@@ -64,9 +66,6 @@
             progressElement.textContent = `${pr}%`
           }
         }).sync();
-
-
-        console.log('Upload complete', upload);
       }
     }, false);
 
