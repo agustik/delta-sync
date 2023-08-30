@@ -99,7 +99,8 @@ class SyncRequest {
 
     if (type === 'fileChunks') {
       log.debug({ file, query, params }, `Constructing file from remote chunks`);
-      const payload = await self.constructFile(data);
+      const constructed = await self.constructFile(data);
+      const payload = constructed.content;
       await self.callbacks.saveFile({
         file,
         params: self.params,
@@ -109,7 +110,9 @@ class SyncRequest {
         encodeMessage({
           file,
           type: 'complete',
-        }));
+          ratio: constructed.ratio,
+        })
+      );
       return await self.callbacks.onComplete({
         file,
         params: self.params,
@@ -130,6 +133,7 @@ class SyncRequest {
         encodeMessage({
           file,
           type: 'complete',
+          ratio: 1,
         }));
       return await self.callbacks.onComplete({
         file,
@@ -221,7 +225,10 @@ class SyncRequest {
       throw new Error(`File hash does not match, expected :${file.sha256} but got ${sha256Hash}`)
     }
 
-    return newFile;
+    return {
+      content: newFile,
+      ratio: (file.size / message.payload.length),
+    };
   }
 
   async compareFingerprint(message) {

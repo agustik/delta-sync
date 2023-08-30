@@ -96,6 +96,7 @@ class DeltaSync {
         this.emittUpdate('complete', {
           file: this.file,
           message: 'Operation is complete',
+          ratio: message.ratio,
         })
         return this.socket.close();
       }
@@ -104,6 +105,7 @@ class DeltaSync {
         this.emittUpdate('complete', {
           file: this.file,
           message: 'Operation is complete',
+          ratio: message.ratio,
         })
         return this.socket.close();
       }

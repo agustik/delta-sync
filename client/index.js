@@ -2282,7 +2282,8 @@ var DeltaSync = class {
         clearInterval(interval);
         this.emittUpdate("complete", {
           file: this.file,
-          message: "Operation is complete"
+          message: "Operation is complete",
+          ratio: message.ratio
         });
         return this.socket.close();
       }
@@ -2290,7 +2291,8 @@ var DeltaSync = class {
         clearInterval(interval);
         this.emittUpdate("complete", {
           file: this.file,
-          message: "Operation is complete"
+          message: "Operation is complete",
+          ratio: message.ratio
         });
         return this.socket.close();
       }

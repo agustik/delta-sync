@@ -122,6 +122,9 @@ class DeltaSync {
   }
   async runPre(req, socket, head) {
     const callbacks = this.preCallbacks;
+
+    if (callbacks.length < 1) return true;
+
     const resp = await Promise.all(callbacks.map(callback => {
       return callback(req, socket, head);
     }));
@@ -156,7 +159,7 @@ class DeltaSync {
       this.params = params;
 
       if (!params) {
-        return log.error({pathname}, `Got ws on ${pathname} but configured for ${self.pathname}, skipping`)
+        return log.error({pathname}, `Got ws on ${pathname} but configured for ${self.path}, skipping`)
       }
       wss.handleUpgrade(req, socket, head, function done(ws) {
         wss.emit('connection', ws, req);
