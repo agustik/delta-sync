@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 
 try {
   await fs.rmdir('./dist', { recursive: true, force: true });
+  await fs.rmdir('./client', { recursive: true, force: true });
 } catch (error) {
   
 }
@@ -49,6 +50,8 @@ const serverConfig = {
 
 await esbuild.build(clientConfig);
 await esbuild.build(serverConfig);
+
+await fs.rename('client/index.js', 'client/index.cjs')
 
 
 await fs.writeFile('dist/server/package.json', JSON.stringify({
