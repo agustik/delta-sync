@@ -343,39 +343,3 @@ class DeltaSync {
 
 }
 
-
-
-const progressElement = document.getElementById('progress');
-
-document.getElementById("filepicker").addEventListener("change", async (event) => {
-  const output = document.getElementById("listing");
-
-  for (const file of event.target.files) {
-
-    let item = document.createElement("li");
-    output.appendChild(item);
-
-    const name = file.name.toString();
-
-    const upload = await new DeltaSync(file, {
-      url: `/api/.delta-sync/${file.name}?foo=bar&d=${ new Date() }`,
-      updates: (event, data) => {
-        console.log('Got update event', event, data);
-        item.textContent = `${name} - ${data.message}`;
-      }, 
-      getBufferStatus: (d) => {
-        
-        const bufferedAmount = d.buffered / d.total;
-        const pr = Math.ceil((1 - bufferedAmount ) * 100);
-        progressElement.style.width = `${pr}%`;
-        progressElement.textContent = `${pr}%`
-      }
-    }).sync();
-    
-
-    console.log('Upload complete', upload);
-  }
-}, false);
-
-
-const socket = new WebSocket('ws://localhost:9000/api/.delta-sync/blarg');
