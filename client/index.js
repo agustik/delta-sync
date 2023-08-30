@@ -7,10 +7,6 @@ var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -27,7 +23,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/base64-js/index.js
 var require_base64_js = __commonJS({
@@ -1909,13 +1904,6 @@ var require_buffer = __commonJS({
   }
 });
 
-// src/client/index.mjs
-var client_exports = {};
-__export(client_exports, {
-  default: () => client_default
-});
-module.exports = __toCommonJS(client_exports);
-
 // node_modules/crc/mjs/calculators/crc32.js
 var TABLE = [
   0,
@@ -2484,6 +2472,9 @@ var DeltaSync = class {
   }
 };
 var client_default = DeltaSync;
+export {
+  client_default as default
+};
 /*! Bundled license information:
 
 ieee754/index.js:

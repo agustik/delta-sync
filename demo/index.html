@@ -34,10 +34,10 @@
   <footer>
     <!-- place footer here -->
   </footer>
-  <script type="module" src="../client/index.cjs"></script>
-  <script>
+  <!-- <script type="module" src="../client/index.js"></script> -->
+  <script type="module">
 
-
+    import DeltaSync from '../client/index.js'
     const progressElement = document.getElementById('progress');
 
     document.getElementById("filepicker").addEventListener("change", async (event) => {

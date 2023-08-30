@@ -19,7 +19,7 @@ const clientConfig = {
   entryNames: '[name]',
   outbase: 'demo',
   outdir: 'client',
-  format: 'cjs',
+  format: 'esm',
   target: [
     // 'browser',
   ],
