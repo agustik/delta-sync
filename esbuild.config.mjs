@@ -48,4 +48,3 @@ await esbuild.build(clientConfig);
 await esbuild.build(serverConfig);
 
 await fs.rename('dist/server/index.js', 'dist/server/index.cjs')
-await fs.rename('client/index.js', 'client/index.cjs')
