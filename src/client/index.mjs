@@ -97,6 +97,7 @@ class DeltaSync {
           file: this.file,
           message: 'Operation is complete',
           ratio: message.ratio,
+          sent: this.bufferSize,
         })
         return this.socket.close();
       }
@@ -106,6 +107,7 @@ class DeltaSync {
           file: this.file,
           message: 'Operation is complete',
           ratio: 0,
+          sent: this.bufferSize,
         })
         return this.socket.close();
       }

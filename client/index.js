@@ -2271,7 +2271,8 @@ var DeltaSync = class {
         this.emittUpdate("complete", {
           file: this.file,
           message: "Operation is complete",
-          ratio: message.ratio
+          ratio: message.ratio,
+          sent: this.bufferSize
         });
         return this.socket.close();
       }
@@ -2280,7 +2281,8 @@ var DeltaSync = class {
         this.emittUpdate("complete", {
           file: this.file,
           message: "Operation is complete",
-          ratio: 0
+          ratio: 0,
+          sent: this.bufferSize
         });
         return this.socket.close();
       }
