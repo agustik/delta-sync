@@ -9196,6 +9196,7 @@ var SyncRequest = class {
     this.log = opts.log;
     this.query = opts.query;
     this.params = opts.params;
+    this.headers = opts.headers;
     this.requestObject = opts.requestObject || {};
     this.callbacks = {
       loadFile: opts.loadFile,
@@ -9238,7 +9239,8 @@ var SyncRequest = class {
         file,
         params: self.params,
         query: self.query,
-        requestObject: self.requestObject
+        requestObject: self.requestObject,
+        headers: self.headers
       }, payload);
       ws.send(
         encodeMessage({
@@ -9251,7 +9253,8 @@ var SyncRequest = class {
         file,
         params: self.params,
         query: self.query,
-        requestObject: self.requestObject
+        requestObject: self.requestObject,
+        headers: self.headers
       }, payload);
     }
     if (type === "upload") {
@@ -9261,7 +9264,8 @@ var SyncRequest = class {
         file,
         params: self.params,
         query: self.query,
-        requestObject: self.requestObject
+        requestObject: self.requestObject,
+        headers: self.headers
       }, payload);
       ws.send(
         encodeMessage({
@@ -9274,7 +9278,8 @@ var SyncRequest = class {
         file,
         params: self.params,
         query: self.query,
-        requestObject: self.requestObject
+        requestObject: self.requestObject,
+        headers: self.headers
       }, payload);
     }
   }
@@ -9297,7 +9302,8 @@ var SyncRequest = class {
       file,
       params: self.params,
       query: self.query,
-      requestObject: self.requestObject
+      requestObject: self.requestObject,
+      headers: self.headers
     });
     const hash = sha256(content);
     if (file.size !== stat2.size) {
@@ -9327,7 +9333,8 @@ var SyncRequest = class {
       file,
       params: self.params,
       query: self.query,
-      requestObject: self.requestObject
+      requestObject: self.requestObject,
+      headers: self.headers
     });
     const newFile = Buffer.alloc(file.size);
     const missingChunks = splitChunksResponse(response);

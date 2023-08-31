@@ -55,6 +55,7 @@ class SyncRequest {
 
     this.query = opts.query;
     this.params = opts.params;
+    this.headers = opts.headers;
     this.requestObject = opts.requestObject || {};
 
     this.callbacks = {
@@ -107,6 +108,7 @@ class SyncRequest {
         params: self.params,
         query: self.query,
         requestObject: self.requestObject,
+        headers: self.headers,
       }, payload);
       ws.send(
         encodeMessage({
@@ -120,6 +122,7 @@ class SyncRequest {
         params: self.params,
         query: self.query,
         requestObject: self.requestObject,
+        headers: self.headers,
       }, payload);
 
     }
@@ -132,6 +135,7 @@ class SyncRequest {
         params: self.params,
         query: self.query,
         requestObject: self.requestObject,
+        headers: self.headers,
       }, payload);
       ws.send(
         encodeMessage({
@@ -144,6 +148,7 @@ class SyncRequest {
         params: self.params,
         query: self.query,
         requestObject: self.requestObject,
+        headers: self.headers,
       }, payload);
     }
   }
@@ -171,6 +176,7 @@ class SyncRequest {
       params: self.params,
       query: self.query,
       requestObject: self.requestObject,
+      headers: self.headers,
     });
 
     const hash = sha256(content);
@@ -205,6 +211,7 @@ class SyncRequest {
       params: self.params,
       query: self.query,
       requestObject: self.requestObject,
+      headers: self.headers,
     });
     const newFile = Buffer.alloc(file.size);
     const missingChunks = splitChunksResponse(response);
