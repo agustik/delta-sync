@@ -61,6 +61,8 @@ class DeltaSync {
 
     this.log = log;
 
+    this.requestObject = {};
+
     const callbacks = defaultCallbacks(dir);
 
     if (typeof opts.loadFile === 'function'){
@@ -106,6 +108,7 @@ class DeltaSync {
             params: self.params,
             query: self.query,
             headers: self.headers,
+            requestObject: self.requestObject,
             loadFile: callbacks.loadFile,
             saveFile: callbacks.saveFile,
             statFile: callbacks.statFile,
@@ -122,11 +125,12 @@ class DeltaSync {
   }
   async runPre(req, socket, head) {
     const callbacks = this.preCallbacks;
+    const self = this;
 
     if (callbacks.length < 1) return true;
 
     const resp = await Promise.all(callbacks.map(callback => {
-      return callback(req, socket, head);
+      return callback(req, socket, head, self.requestObject);
     }));
     return resp.some(r => r);
   }

@@ -55,6 +55,7 @@ class SyncRequest {
 
     this.query = opts.query;
     this.params = opts.params;
+    this.requestObject = opts.requestObject || {};
 
     this.callbacks = {
       loadFile: opts.loadFile,
@@ -105,6 +106,7 @@ class SyncRequest {
         file,
         params: self.params,
         query: self.query,
+        requestObject: self.requestObject,
       }, payload);
       ws.send(
         encodeMessage({
@@ -117,6 +119,7 @@ class SyncRequest {
         file,
         params: self.params,
         query: self.query,
+        requestObject: self.requestObject,
       }, payload);
 
     }
@@ -128,6 +131,7 @@ class SyncRequest {
         file,
         params: self.params,
         query: self.query,
+        requestObject: self.requestObject,
       }, payload);
       ws.send(
         encodeMessage({
@@ -139,6 +143,7 @@ class SyncRequest {
         file,
         params: self.params,
         query: self.query,
+        requestObject: self.requestObject,
       }, payload);
     }
   }
@@ -165,6 +170,7 @@ class SyncRequest {
       file,
       params: self.params,
       query: self.query,
+      requestObject: self.requestObject,
     });
 
     const hash = sha256(content);
@@ -198,6 +204,7 @@ class SyncRequest {
       file,
       params: self.params,
       query: self.query,
+      requestObject: self.requestObject,
     });
     const newFile = Buffer.alloc(file.size);
     const missingChunks = splitChunksResponse(response);
@@ -238,6 +245,7 @@ class SyncRequest {
       file,
       params: self.params,
       query: self.query,
+      requestObject: self.requestObject,
     });
     const fingerprints = message.header.fingerprint;
     const hashMap = {}

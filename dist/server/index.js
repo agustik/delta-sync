@@ -9196,6 +9196,7 @@ var SyncRequest = class {
     this.log = opts.log;
     this.query = opts.query;
     this.params = opts.params;
+    this.requestObject = opts.requestObject || {};
     this.callbacks = {
       loadFile: opts.loadFile,
       saveFile: opts.saveFile,
@@ -9236,7 +9237,8 @@ var SyncRequest = class {
       await self.callbacks.saveFile({
         file,
         params: self.params,
-        query: self.query
+        query: self.query,
+        requestObject: self.requestObject
       }, payload);
       ws.send(
         encodeMessage({
@@ -9248,7 +9250,8 @@ var SyncRequest = class {
       return await self.callbacks.onComplete({
         file,
         params: self.params,
-        query: self.query
+        query: self.query,
+        requestObject: self.requestObject
       }, payload);
     }
     if (type === "upload") {
@@ -9257,7 +9260,8 @@ var SyncRequest = class {
       await self.callbacks.saveFile({
         file,
         params: self.params,
-        query: self.query
+        query: self.query,
+        requestObject: self.requestObject
       }, payload);
       ws.send(
         encodeMessage({
@@ -9269,7 +9273,8 @@ var SyncRequest = class {
       return await self.callbacks.onComplete({
         file,
         params: self.params,
-        query: self.query
+        query: self.query,
+        requestObject: self.requestObject
       }, payload);
     }
   }
@@ -9291,7 +9296,8 @@ var SyncRequest = class {
     const content = await this.callbacks.loadFile({
       file,
       params: self.params,
-      query: self.query
+      query: self.query,
+      requestObject: self.requestObject
     });
     const hash = sha256(content);
     if (file.size !== stat2.size) {
@@ -9320,7 +9326,8 @@ var SyncRequest = class {
     const content = await this.callbacks.loadFile({
       file,
       params: self.params,
-      query: self.query
+      query: self.query,
+      requestObject: self.requestObject
     });
     const newFile = Buffer.alloc(file.size);
     const missingChunks = splitChunksResponse(response);
@@ -9351,7 +9358,8 @@ var SyncRequest = class {
     const content = await this.callbacks.loadFile({
       file,
       params: self.params,
-      query: self.query
+      query: self.query,
+      requestObject: self.requestObject
     });
     const fingerprints = message.header.fingerprint;
     const hashMap = {};
@@ -9714,6 +9722,7 @@ var DeltaSync = class {
     const log = opts.log || (0, import_pino.default)();
     this.preCallbacks = [];
     this.log = log;
+    this.requestObject = {};
     const callbacks = default_callbacks_default(dir);
     if (typeof opts.loadFile === "function") {
       callbacks.loadFile = opts.loadFile;
@@ -9751,6 +9760,7 @@ var DeltaSync = class {
             params: self.params,
             query: self.query,
             headers: self.headers,
+            requestObject: self.requestObject,
             loadFile: callbacks.loadFile,
             saveFile: callbacks.saveFile,
             statFile: callbacks.statFile,
@@ -9767,10 +9777,11 @@ var DeltaSync = class {
   }
   async runPre(req, socket, head) {
     const callbacks = this.preCallbacks;
+    const self = this;
     if (callbacks.length < 1)
       return true;
     const resp = await Promise.all(callbacks.map((callback) => {
-      return callback(req, socket, head);
+      return callback(req, socket, head, self.requestObject);
     }));
     return resp.some((r) => r);
   }
