@@ -49,11 +49,12 @@ function messageParser(bufferMessage){
 
 
 class DeltaSync {
-  constructor(opts) {
-    assert.object(opts, 'opts');
+  constructor(options) {
+    assert.optionalObject(options, 'options');
+    const opts = options || {};
     assert.optionalString(opts.directory, 'opts.directory')
     const self = this;
-    this.path = opts.path || '/api/.delta-sync';
+    this.path = (opts.path === undefined) ? '/api/.delta-sync' : opts.path;
     const dir = opts.directory || '.';
     const log = opts.log || pino();
 
@@ -134,41 +135,44 @@ class DeltaSync {
     }));
     return resp.some(r => r);
   }
-  attach(server) {
-    const log = this.log;  
-    const wss = this.wss;
-    const self = this;
-
-    const pathParser = new Path(this.path);
-
+  async handleUpgrade(req, socket, head){
     
-    server.on('upgrade', async (req, socket, head) => {      
-      self.headers = req.headers;
-      self.query = parseQuery(`http://psudo${req.url}`);
-      const pathname = new URL(`http://psudo${req.url}`).pathname;
-      const params = pathParser.test(pathname);
-      
-      req.deltaSync = {
-        pathname,
-        params,
-        query: self.query
-      };
-
-      const preReq = await self.runPre(req, socket, head);
-
-      if ( ! preReq ){
-        return log.warn(`Pre runs did not all return true`);
+    const log = this.log;
+    const wss = this.wss;
+    this.params = req.params;
+    this.query = req.query;
+    this.headers = req.headers;
+    const pathname = new URL(`http://psudo${req.url}`).pathname;
+    if (!this.params) {
+      this.params = new Path(this.path).test(pathname);
+      if (!this.params) {
+        return log.error({ pathname }, `Got ws on ${pathname} but configured for ${this.path}, skipping`)
       }
+    }
+    
+    if (! this.query ){
+      this.query = parseQuery(`http://psudo${req.url}`);
+    }
+  
+    req.deltaSync = {
+      pathname,
+      params: this.params,
+      query: this.query,
+    };
 
-      this.params = params;
+    const preReq = await this.runPre(req, socket, head);
 
-      if (!params) {
-        return log.error({pathname}, `Got ws on ${pathname} but configured for ${self.path}, skipping`)
-      }
-      wss.handleUpgrade(req, socket, head, function done(ws) {
-        wss.emit('connection', ws, req);
-      });
+    if (!preReq) {
+      return log.warn(`Pre runs did not all return true`);
+    }
+    
+    log.debug({params: this.params, query: this.query, headers: this.headers}, `Upgrading request`);
+    wss.handleUpgrade(req, socket, head, function done(ws) {
+      wss.emit('connection', ws, req);
     });
+  }
+  attach(server) {
+    server.on('upgrade', this.handleUpgrade.bind(this));
   }
 }
 

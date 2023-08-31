@@ -1,6 +1,7 @@
 
 import { crc32 } from '@node-rs/crc32';
 import crypto from 'crypto';
+import merge from 'deepmerge';
 
 function createId(){
   const bytes = crypto.randomBytes(256);
@@ -53,10 +54,10 @@ class SyncRequest {
     this.dir = opts.dir;
     this.log = opts.log;
 
-    this.query = opts.query;
-    this.params = opts.params;
-    this.headers = opts.headers;
-    this.requestObject = opts.requestObject || {};
+    this.query = merge({}, opts.query || {});
+    this.params = merge({}, opts.params || {});
+    this.headers = merge({}, opts.headers || {});
+    this.requestObject = merge({}, opts.requestObject || {});
 
     this.callbacks = {
       loadFile: opts.loadFile,

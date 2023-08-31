@@ -1650,7 +1650,7 @@ var require_sender = __commonJS({
        */
       static frame(data, options) {
         let mask;
-        let merge = false;
+        let merge2 = false;
         let offset = 2;
         let skipMasking = false;
         if (options.mask) {
@@ -1673,7 +1673,7 @@ var require_sender = __commonJS({
           }
         } else {
           dataLength = data.length;
-          merge = options.mask && options.readOnly && !skipMasking;
+          merge2 = options.mask && options.readOnly && !skipMasking;
         }
         let payloadLength = dataLength;
         if (dataLength >= 65536) {
@@ -1683,7 +1683,7 @@ var require_sender = __commonJS({
           offset += 2;
           payloadLength = 126;
         }
-        const target = Buffer.allocUnsafe(merge ? dataLength + offset : offset);
+        const target = Buffer.allocUnsafe(merge2 ? dataLength + offset : offset);
         target[0] = options.fin ? options.opcode | 128 : options.opcode;
         if (options.rsv1)
           target[0] |= 64;
@@ -1703,7 +1703,7 @@ var require_sender = __commonJS({
         target[offset - 1] = mask[3];
         if (skipMasking)
           return [target, data];
-        if (merge) {
+        if (merge2) {
           applyMask(data, mask, target, offset, dataLength);
           return [target];
         }
@@ -3947,6 +3947,109 @@ var require_crc32 = __commonJS({
     var { crc32c, crc32: crc322 } = nativeBinding;
     module2.exports.crc32c = crc32c;
     module2.exports.crc32 = crc322;
+  }
+});
+
+// node_modules/deepmerge/dist/cjs.js
+var require_cjs = __commonJS({
+  "node_modules/deepmerge/dist/cjs.js"(exports, module2) {
+    "use strict";
+    var isMergeableObject = function isMergeableObject2(value) {
+      return isNonNullObject(value) && !isSpecial(value);
+    };
+    function isNonNullObject(value) {
+      return !!value && typeof value === "object";
+    }
+    function isSpecial(value) {
+      var stringValue = Object.prototype.toString.call(value);
+      return stringValue === "[object RegExp]" || stringValue === "[object Date]" || isReactElement(value);
+    }
+    var canUseSymbol = typeof Symbol === "function" && Symbol.for;
+    var REACT_ELEMENT_TYPE = canUseSymbol ? Symbol.for("react.element") : 60103;
+    function isReactElement(value) {
+      return value.$$typeof === REACT_ELEMENT_TYPE;
+    }
+    function emptyTarget(val) {
+      return Array.isArray(val) ? [] : {};
+    }
+    function cloneUnlessOtherwiseSpecified(value, options) {
+      return options.clone !== false && options.isMergeableObject(value) ? deepmerge(emptyTarget(value), value, options) : value;
+    }
+    function defaultArrayMerge(target, source, options) {
+      return target.concat(source).map(function(element) {
+        return cloneUnlessOtherwiseSpecified(element, options);
+      });
+    }
+    function getMergeFunction(key, options) {
+      if (!options.customMerge) {
+        return deepmerge;
+      }
+      var customMerge = options.customMerge(key);
+      return typeof customMerge === "function" ? customMerge : deepmerge;
+    }
+    function getEnumerableOwnPropertySymbols(target) {
+      return Object.getOwnPropertySymbols ? Object.getOwnPropertySymbols(target).filter(function(symbol) {
+        return Object.propertyIsEnumerable.call(target, symbol);
+      }) : [];
+    }
+    function getKeys(target) {
+      return Object.keys(target).concat(getEnumerableOwnPropertySymbols(target));
+    }
+    function propertyIsOnObject(object, property) {
+      try {
+        return property in object;
+      } catch (_) {
+        return false;
+      }
+    }
+    function propertyIsUnsafe(target, key) {
+      return propertyIsOnObject(target, key) && !(Object.hasOwnProperty.call(target, key) && Object.propertyIsEnumerable.call(target, key));
+    }
+    function mergeObject(target, source, options) {
+      var destination = {};
+      if (options.isMergeableObject(target)) {
+        getKeys(target).forEach(function(key) {
+          destination[key] = cloneUnlessOtherwiseSpecified(target[key], options);
+        });
+      }
+      getKeys(source).forEach(function(key) {
+        if (propertyIsUnsafe(target, key)) {
+          return;
+        }
+        if (propertyIsOnObject(target, key) && options.isMergeableObject(source[key])) {
+          destination[key] = getMergeFunction(key, options)(target[key], source[key], options);
+        } else {
+          destination[key] = cloneUnlessOtherwiseSpecified(source[key], options);
+        }
+      });
+      return destination;
+    }
+    function deepmerge(target, source, options) {
+      options = options || {};
+      options.arrayMerge = options.arrayMerge || defaultArrayMerge;
+      options.isMergeableObject = options.isMergeableObject || isMergeableObject;
+      options.cloneUnlessOtherwiseSpecified = cloneUnlessOtherwiseSpecified;
+      var sourceIsArray = Array.isArray(source);
+      var targetIsArray = Array.isArray(target);
+      var sourceAndTargetTypesMatch = sourceIsArray === targetIsArray;
+      if (!sourceAndTargetTypesMatch) {
+        return cloneUnlessOtherwiseSpecified(source, options);
+      } else if (sourceIsArray) {
+        return options.arrayMerge(target, source, options);
+      } else {
+        return mergeObject(target, source, options);
+      }
+    }
+    deepmerge.all = function deepmergeAll(array, options) {
+      if (!Array.isArray(array)) {
+        throw new Error("first argument should be an array");
+      }
+      return array.reduce(function(prev, next) {
+        return deepmerge(prev, next, options);
+      }, {});
+    };
+    var deepmerge_1 = deepmerge;
+    module2.exports = deepmerge_1;
   }
 });
 
@@ -9156,6 +9259,7 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 // src/server/sync-request/index.mjs
 var import_crc32 = __toESM(require_crc32(), 1);
 var import_crypto = __toESM(require("crypto"), 1);
+var import_deepmerge = __toESM(require_cjs(), 1);
 function createId() {
   const bytes = import_crypto.default.randomBytes(256);
   return sha1(bytes);
@@ -9194,10 +9298,10 @@ var SyncRequest = class {
     this.ws = opts.ws;
     this.dir = opts.dir;
     this.log = opts.log;
-    this.query = opts.query;
-    this.params = opts.params;
-    this.headers = opts.headers;
-    this.requestObject = opts.requestObject || {};
+    this.query = (0, import_deepmerge.default)({}, opts.query || {});
+    this.params = (0, import_deepmerge.default)({}, opts.params || {});
+    this.headers = (0, import_deepmerge.default)({}, opts.headers || {});
+    this.requestObject = (0, import_deepmerge.default)({}, opts.requestObject || {});
     this.callbacks = {
       loadFile: opts.loadFile,
       saveFile: opts.saveFile,
@@ -9720,11 +9824,12 @@ function messageParser(bufferMessage) {
   };
 }
 var DeltaSync = class {
-  constructor(opts) {
-    import_assert_plus.default.object(opts, "opts");
+  constructor(options) {
+    import_assert_plus.default.optionalObject(options, "options");
+    const opts = options || {};
     import_assert_plus.default.optionalString(opts.directory, "opts.directory");
     const self = this;
-    this.path = opts.path || "/api/.delta-sync";
+    this.path = opts.path === void 0 ? "/api/.delta-sync" : opts.path;
     const dir = opts.directory || ".";
     const log = opts.log || (0, import_pino.default)();
     this.preCallbacks = [];
@@ -9792,33 +9897,38 @@ var DeltaSync = class {
     }));
     return resp.some((r) => r);
   }
-  attach(server) {
+  async handleUpgrade(req, socket, head) {
     const log = this.log;
     const wss = this.wss;
-    const self = this;
-    const pathParser = new import_path_parser.Path(this.path);
-    server.on("upgrade", async (req, socket, head) => {
-      self.headers = req.headers;
-      self.query = parseQuery(`http://psudo${req.url}`);
-      const pathname = new URL(`http://psudo${req.url}`).pathname;
-      const params = pathParser.test(pathname);
-      req.deltaSync = {
-        pathname,
-        params,
-        query: self.query
-      };
-      const preReq = await self.runPre(req, socket, head);
-      if (!preReq) {
-        return log.warn(`Pre runs did not all return true`);
+    this.params = req.params;
+    this.query = req.query;
+    this.headers = req.headers;
+    const pathname = new URL(`http://psudo${req.url}`).pathname;
+    if (!this.params) {
+      this.params = new import_path_parser.Path(this.path).test(pathname);
+      if (!this.params) {
+        return log.error({ pathname }, `Got ws on ${pathname} but configured for ${this.path}, skipping`);
       }
-      this.params = params;
-      if (!params) {
-        return log.error({ pathname }, `Got ws on ${pathname} but configured for ${self.path}, skipping`);
-      }
-      wss.handleUpgrade(req, socket, head, function done(ws) {
-        wss.emit("connection", ws, req);
-      });
+    }
+    if (!this.query) {
+      this.query = parseQuery(`http://psudo${req.url}`);
+    }
+    req.deltaSync = {
+      pathname,
+      params: this.params,
+      query: this.query
+    };
+    const preReq = await this.runPre(req, socket, head);
+    if (!preReq) {
+      return log.warn(`Pre runs did not all return true`);
+    }
+    log.debug({ params: this.params, query: this.query, headers: this.headers }, `Upgrading request`);
+    wss.handleUpgrade(req, socket, head, function done(ws) {
+      wss.emit("connection", ws, req);
     });
+  }
+  attach(server) {
+    server.on("upgrade", this.handleUpgrade.bind(this));
   }
 };
 var server_default = DeltaSync;
