@@ -67,6 +67,7 @@ class SyncRequest {
     }
   }
 
+
   async handle(data) {
 
     const log = this.log;

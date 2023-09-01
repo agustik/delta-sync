@@ -41,6 +41,7 @@ const serverConfig = {
   loader: {
     '.node': 'file'
   },
+  external: ['crc'],
   outdir: 'dist/server',
   platform: 'node',
   target: [

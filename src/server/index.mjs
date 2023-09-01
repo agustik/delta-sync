@@ -3,10 +3,7 @@ import { WebSocketServer } from 'ws';
 import SyncRequest from './sync-request/index.mjs';
 import defaultCallbacks from './default-callbacks/index.mjs';
 import { Path } from 'path-parser'
-
 import pino from 'pino';
-
-
 
 function parseQuery(url) {
   const u = new URL(url);
