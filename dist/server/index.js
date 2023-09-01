@@ -3714,20 +3714,6 @@ var require_websocket_server = __commonJS({
   }
 });
 
-// node_modules/@node-rs/crc32-linux-x64-musl/crc32.linux-x64-musl.node
-var require_crc32_linux_x64_musl = __commonJS({
-  "node_modules/@node-rs/crc32-linux-x64-musl/crc32.linux-x64-musl.node"(exports, module2) {
-    module2.exports = "./_.._/_.._/node_modules/@node-rs/crc32-linux-x64-musl/crc32.linux-x64-musl.node";
-  }
-});
-
-// node_modules/@node-rs/crc32-linux-x64-gnu/crc32.linux-x64-gnu.node
-var require_crc32_linux_x64_gnu = __commonJS({
-  "node_modules/@node-rs/crc32-linux-x64-gnu/crc32.linux-x64-gnu.node"(exports, module2) {
-    module2.exports = "./_.._/_.._/node_modules/@node-rs/crc32-linux-x64-gnu/crc32.linux-x64-gnu.node";
-  }
-});
-
 // node_modules/@node-rs/crc32/index.js
 var require_crc32 = __commonJS({
   "node_modules/@node-rs/crc32/index.js"(exports, module2) {
@@ -3876,7 +3862,7 @@ var require_crc32 = __commonJS({
                 if (localFileExisted) {
                   nativeBinding = require("./crc32.linux-x64-musl.node");
                 } else {
-                  nativeBinding = require_crc32_linux_x64_musl();
+                  nativeBinding = require("./_.._/_.._/node_modules/@node-rs/crc32-linux-x64-musl/crc32.linux-x64-musl.node");
                 }
               } catch (e) {
                 loadError = e;
@@ -3887,7 +3873,7 @@ var require_crc32 = __commonJS({
                 if (localFileExisted) {
                   nativeBinding = require("./crc32.linux-x64-gnu.node");
                 } else {
-                  nativeBinding = require_crc32_linux_x64_gnu();
+                  nativeBinding = require("./_.._/_.._/node_modules/@node-rs/crc32-linux-x64-gnu/crc32.linux-x64-gnu.node");
                 }
               } catch (e) {
                 loadError = e;

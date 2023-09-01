@@ -39,9 +39,9 @@ const serverConfig = {
   entryNames: '[name]',
   format: 'cjs',
   loader: {
-    '.node': 'file'
+    '.node': 'copy'
   },
-  external: ['crc'],
+  external: ['crc', '@node-rs/crc'],
   outdir: 'dist/server',
   platform: 'node',
   target: [
