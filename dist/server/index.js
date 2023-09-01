@@ -9446,7 +9446,7 @@ var SyncRequest = class {
     }
     return {
       content: newFile,
-      ratio: file.size / response.payload.length
+      ratio: response.payload.length / file.size
     };
   }
   async compareFingerprint(message) {
