@@ -55,12 +55,20 @@ function hashChunk(chunk) {
   return crc32(chunk);
 }
 
+function getProtocol(){
+  const proto = self.location.protocol;
+  return (proto === 'https:') ? 'wss:' : 'ws:';
+}
+
+function getHost() {
+  return self.location.host;
+}
+
 class DeltaSync {
   constructor(file, opts){
-    const self = this;
-
-    const proto = (window.location.protocol === 'https:') ? 'wss:' : 'ws:'
-    const url = (/ws?s:\/\//.test(opts.url)) ? opts.url : `${proto}//${window.location.host}${opts.url}`;
+    const proto = getProtocol();
+    const host = getHost();
+    const url = (/ws?s:\/\//.test(opts.url)) ? opts.url : `${proto}//${host}${opts.url}`;
     this.socket = new WebSocket(url);
     this.socket.binaryType = 'arraybuffer';
     this.file = file;
@@ -113,17 +121,17 @@ class DeltaSync {
       }
 
       if (message.request === 'fingerprint'){
-        await self.sendFingerprint();
+        await this.sendFingerprint();
       }
 
       if (message.type === 'fileStatus'){
         if (message.exists === false){
-          return self.upload()
+          return this.upload()
         }
       }
 
       if (message.type === 'request-chunks'){
-        return self.sendMissingChunks(message);
+        return this.sendMissingChunks(message);
       }
     })
   }
@@ -138,7 +146,6 @@ class DeltaSync {
   }
 
   async sendMissingChunks(message){
-    const self = this;
     const file = this.file;
     this.emittUpdate('chunks',{
       file,
@@ -170,7 +177,7 @@ class DeltaSync {
 
     const header = {
       type: 'fileChunks',
-      file: self.getFileInfo(),
+      file: this.getFileInfo(),
       chunkMetadata,
     };
 
@@ -257,8 +264,6 @@ class DeltaSync {
   }
 
   async sync() {
-
-    const self = this;
     if (this.socket.readyState === 1){
       await this.fileStatus(this.file);
     }
@@ -269,11 +274,11 @@ class DeltaSync {
 
 
     return new Promise((resolve, reject) => {
-      self.socket.addEventListener('close', (event) => {
+      this.socket.addEventListener('close', (event) => {
         return resolve(event);
       });
 
-      self.socket.addEventListener('error', (event) => {
+      this.socket.addEventListener('error', (event) => {
         return reject(event);
       });
 

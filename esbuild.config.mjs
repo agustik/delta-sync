@@ -64,6 +64,6 @@ await fs.writeFile('dist/server/package.json', JSON.stringify({
 }, null, 2))
 
 
-await fs.writeFile('client/package.json', JSON.stringify({
-  type: 'commonjs',
-}, null, 2))
+// await fs.writeFile('client/package.json', JSON.stringify({
+//   type: 'commonjs',
+// }, null, 2))
