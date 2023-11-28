@@ -9259,25 +9259,15 @@ function sha256(content) {
 function hashChunk(chunk) {
   return (0, import_crc32.crc32)(chunk);
 }
+function sum(arr) {
+  return arr.reduce((a, b) => {
+    return a + b;
+  }, 0);
+}
 function encodeMessage(obj) {
   obj["@timestamp"] = /* @__PURE__ */ new Date();
   obj._id = createId();
   return JSON.stringify(obj);
-}
-function splitChunksResponse(message) {
-  const meta = message.header.chunkMetadata;
-  const buffer = message.payload;
-  let offset = 0;
-  return meta.map((metadata) => {
-    const end = offset + metadata.size;
-    metadata.data = buffer.subarray(offset, end);
-    offset += metadata.size;
-    const expectedHash = sha1(metadata.data);
-    if (metadata.sha1 !== expectedHash) {
-      throw new Error(`Buffer does not match expected hash, got ${expectedHash} but was expecting: ${metadata.sha1}`);
-    }
-    return metadata;
-  });
 }
 var SyncRequest = class {
   constructor(opts) {
@@ -9288,6 +9278,8 @@ var SyncRequest = class {
     this.params = (0, import_deepmerge.default)({}, opts.params || {});
     this.headers = (0, import_deepmerge.default)({}, opts.headers || {});
     this.requestObject = (0, import_deepmerge.default)({}, opts.requestObject || {});
+    this.chunkArray = [];
+    this.chunksMetadata = {};
     this.callbacks = {
       loadFile: opts.loadFile,
       saveFile: opts.saveFile,
@@ -9305,15 +9297,16 @@ var SyncRequest = class {
     const query = self.query;
     const params = self.params;
     if (type === "fileStatus") {
-      log.debug({ file, query, params }, `Checking file status`);
+      log.trace({ file, query, params }, `[DeltaSync] Checking file status`);
       const response = await self.fileStatus(data);
       return ws.send(
         encodeMessage(response)
       );
     }
     if (type === "fingerprint") {
-      log.debug({ file, query, params }, `Scanning file for fingerprints`);
+      log.trace({ file, query, params }, `[DeltaSync] Scanning file for fingerprints`);
       const chunks = await self.compareFingerprint(data);
+      log.trace({ file, query, params }, `[DeltaSync] Got the missing chunks`);
       self.chunks = chunks;
       return ws.send(encodeMessage({
         type: "request-chunks",
@@ -9321,9 +9314,25 @@ var SyncRequest = class {
         file
       }));
     }
-    if (type === "fileChunks") {
-      log.debug({ file, query, params }, `Constructing file from remote chunks`);
-      const constructed = await self.constructFile(data);
+    if (type === "chunks-header") {
+      log.trace(`[DeltaSync] Got the chunk header, chunks incomming!`);
+      this.chunksMetadata = data.header.chunksMetadata;
+      return;
+    }
+    if (type === "fileChunk") {
+      const { header, offset, size, index, count } = data.header;
+      const obj = Object.assign({}, data.header);
+      obj.data = data.payload;
+      self.chunkArray.push(obj);
+      if (index !== count) {
+        return;
+      }
+      log.trace(`[DeltaSync] Got all chunks, will construct file`);
+      data.header.chunksMetadata = self.chunksMetadata;
+      const constructed = await self.constructFile({
+        header: data.header,
+        chunks: self.chunkArray
+      });
       const payload = constructed.content;
       await self.callbacks.saveFile({
         file,
@@ -9348,7 +9357,7 @@ var SyncRequest = class {
       }, payload);
     }
     if (type === "upload") {
-      log.debug({ file, query, params }, `Got file from client`);
+      log.trace({ file, query, params }, `[DeltaSync] Got file from client`);
       const payload = data.payload;
       await self.callbacks.saveFile({
         file,
@@ -9384,8 +9393,11 @@ var SyncRequest = class {
     if (!stat2) {
       return {
         type: "fileStatus",
+        file,
         exists: false,
-        file
+        syncRequired: true,
+        request: "fingerprint",
+        sha256: ""
       };
     }
     const content = await this.callbacks.loadFile({
@@ -9419,17 +9431,32 @@ var SyncRequest = class {
   async constructFile(response) {
     const self = this;
     const file = response.header.file;
-    const content = await this.callbacks.loadFile({
-      file,
-      params: self.params,
-      query: self.query,
-      requestObject: self.requestObject,
-      headers: self.headers
-    });
+    const missingChunks = response.chunks;
+    const totalSizeSent = sum(missingChunks.map((chunk) => {
+      return chunk.data.length;
+    }));
+    const ratio = totalSizeSent / file.size;
+    let content = Buffer.alloc(0);
+    try {
+      content = await this.callbacks.loadFile({
+        file,
+        params: self.params,
+        query: self.query,
+        requestObject: self.requestObject,
+        headers: self.headers
+      });
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        self.log.debug({ file }, `[DeltaSync] File does not exist on the server`);
+      } else {
+        throw error;
+      }
+    }
     const newFile = Buffer.alloc(file.size);
-    const missingChunks = splitChunksResponse(response);
+    this.log.trace({ file }, `[DeltaSync] New file allocated ${newFile.length}`);
     const chunks = this.chunks.local.concat(missingChunks);
-    chunks.forEach((chunk) => {
+    this.log.trace({ file }, `[DeltaSync] Got all the chunks, start applying`);
+    chunks.forEach((chunk, i) => {
       const offset = chunk.offset;
       const size = chunk.size;
       const end = offset + size;
@@ -9442,22 +9469,39 @@ var SyncRequest = class {
     });
     const sha256Hash = sha256(newFile);
     if (sha256Hash !== file.sha256) {
-      throw new Error(`File hash does not match, expected :${file.sha256} but got ${sha256Hash}`);
+      this.log.error({ file }, `File sha256 does not match what was expected, expected: ${file.sha256} but got ${sha256Hash} `);
+      throw new Error(`File hash does not match, expected: ${file.sha256} but got ${sha256Hash}`);
     }
     return {
       content: newFile,
-      ratio: response.payload.length / file.size
+      ratio
     };
   }
   async compareFingerprint(message) {
     const file = message.header.file;
     const self = this;
-    const content = await this.callbacks.loadFile({
-      file,
-      params: self.params,
-      query: self.query,
-      requestObject: self.requestObject
-    });
+    const log = this.log;
+    let content = Buffer.alloc(0);
+    try {
+      content = await this.callbacks.loadFile({
+        file,
+        params: self.params,
+        query: self.query,
+        requestObject: self.requestObject
+      });
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        log.trace({ file }, `[DeltaSync] File does not exist on the server`);
+        return {
+          sha256: "",
+          required: message.header.fingerprint.hashes,
+          local: []
+        };
+      } else {
+        throw error;
+      }
+    }
+    log.trace({ file }, "[DeltaSync] File loaded, scanning for matching chunks");
     const fingerprints = message.header.fingerprint;
     const hashMap = {};
     fingerprints.hashes.forEach((value) => {
@@ -9465,11 +9509,16 @@ var SyncRequest = class {
     });
     const len = content.length;
     const blockSize = fingerprints.blockSize;
+    let i = 0;
+    let matchedSize = 0;
+    const matchingChunks = {};
     function isScanning(i2) {
+      const matchRatio = matchedSize / file.size;
+      if (matchRatio >= 0.9999) {
+        return false;
+      }
       return i2 <= len;
     }
-    const matchingChunks = {};
-    let i = 0;
     while (isScanning(i)) {
       const end = i + blockSize;
       const chunk = content.subarray(i, end);
@@ -9484,12 +9533,14 @@ var SyncRequest = class {
             end,
             size: chunk.length
           };
+          matchedSize = matchedSize + chunk.length;
           i = i + match.size;
           continue;
         }
       }
       i++;
     }
+    log.trace({ file }, "[DeltaSync] Completed scanning for files, calulcating chunks");
     const allChunks = fingerprints.hashes.map((value) => {
       value.exists = matchingChunks[value.sha1] || false;
       return value;
@@ -9739,7 +9790,7 @@ var mkdirp = Object.assign(async (path2, opts) => {
 function getFileName(file) {
   return file.webkitRelativePath || file.name;
 }
-function defaultCallbacks(rootDir) {
+function defaultCallbacks(rootDir, log) {
   const callbacks = {
     fileLocation: (req) => {
       const fileName = getFileName(req.file);
@@ -9748,14 +9799,24 @@ function defaultCallbacks(rootDir) {
     loadFile: async (req) => {
       const fileName = getFileName(req.file);
       const fileLoc = import_path5.default.join(rootDir, fileName);
-      return await import_promises.default.readFile(fileLoc);
+      try {
+        return await import_promises.default.readFile(fileLoc);
+      } catch (error) {
+        log.error({ error }, `[DeltaSync] Unable to open file`);
+        throw error;
+      }
     },
     saveFile: async (req, data) => {
       const fileName = getFileName(req.file);
       const fileLoc = import_path5.default.join(rootDir, fileName);
       const dir = import_path5.default.dirname(fileLoc);
-      await mkdirp(dir);
-      return await import_promises.default.writeFile(fileLoc, data);
+      try {
+        await mkdirp(dir);
+        return await import_promises.default.writeFile(fileLoc, data);
+      } catch (error) {
+        log.error({ error }, `[DeltaSync] Unable to write file`);
+        throw error;
+      }
     },
     onComplete: async (req, data) => {
       return true;
@@ -9817,11 +9878,13 @@ var DeltaSync = class {
     const self = this;
     this.path = opts.path === void 0 ? "/api/.delta-sync" : opts.path;
     const dir = opts.directory || ".";
-    const log = opts.log || (0, import_pino.default)();
+    const log = opts.log || (0, import_pino.default)({
+      level: 20
+    });
     this.preCallbacks = [];
     this.log = log;
     this.requestObject = {};
-    const callbacks = default_callbacks_default(dir);
+    const callbacks = default_callbacks_default(dir, log);
     if (typeof opts.loadFile === "function") {
       callbacks.loadFile = opts.loadFile;
     }
@@ -9841,8 +9904,12 @@ var DeltaSync = class {
         params: self.params,
         query: self.query,
         headers: self.headers
-      }, `New webscoket connection`);
-      ws.on("error", log.error);
+      }, `[DeltaSync] New webscoket connection`);
+      ws.on("error", (err) => {
+        log.error({
+          error: err.toString()
+        }, `[DeltaSync] Got Websocket error`);
+      });
       ws.on("message", (message, isBinary) => {
         if (!isBinary)
           return log.error("Only binary messages supported", {

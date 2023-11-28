@@ -19,6 +19,13 @@ function hashChunk(chunk) {
   return crc32(chunk);
 }
 
+
+function sum(arr){
+  return arr.reduce((a,b) => {
+    return a+b;
+  }, 0)
+}
+
 function encodeMessage(obj){
 
   obj['@timestamp'] = new Date();
@@ -27,7 +34,7 @@ function encodeMessage(obj){
 }
 
 function splitChunksResponse(message) {
-  const meta = message.header.chunkMetadata;
+  const meta = message.header.chunksMetadata;
 
   const buffer = message.payload;
 
@@ -58,6 +65,8 @@ class SyncRequest {
     this.params = merge({}, opts.params || {});
     this.headers = merge({}, opts.headers || {});
     this.requestObject = merge({}, opts.requestObject || {});
+    this.chunkArray = [];
+    this.chunksMetadata = {};
 
     this.callbacks = {
       loadFile: opts.loadFile,
@@ -80,7 +89,7 @@ class SyncRequest {
     const params = self.params;
 
     if (type === 'fileStatus') {
-      log.debug({ file, query, params }, `Checking file status`);
+      log.trace({ file, query, params }, `[DeltaSync] Checking file status`);
 
       const response = await self.fileStatus(data);
       return ws.send(
@@ -89,8 +98,9 @@ class SyncRequest {
     }
 
     if (type === 'fingerprint') {
-      log.debug({ file, query, params }, `Scanning file for fingerprints`);
+      log.trace({ file, query, params }, `[DeltaSync] Scanning file for fingerprints`);
       const chunks = await self.compareFingerprint(data);
+      log.trace({ file, query, params }, `[DeltaSync] Got the missing chunks`);
 
       self.chunks = chunks;
 
@@ -101,9 +111,34 @@ class SyncRequest {
       }));
     }
 
-    if (type === 'fileChunks') {
-      log.debug({ file, query, params }, `Constructing file from remote chunks`);
-      const constructed = await self.constructFile(data);
+    if (type === 'chunks-header'){
+      log.trace( `[DeltaSync] Got the chunk header, chunks incomming!`);
+
+      this.chunksMetadata = data.header.chunksMetadata;
+      return ;
+    }
+
+    if (type === 'fileChunk') {
+      const {header, offset, size, index, count} = data.header;      
+
+      const obj = Object.assign({}, data.header);
+      obj.data = data.payload;
+      self.chunkArray.push(obj);
+
+      if (index !== count){
+        return;
+      }
+
+      log.trace(`[DeltaSync] Got all chunks, will construct file`);
+
+
+      data.header.chunksMetadata = self.chunksMetadata; // Apply it before construction
+
+      const constructed = await self.constructFile({
+        header: data.header,
+        chunks: self.chunkArray,
+      });
+      
       const payload = constructed.content;
       await self.callbacks.saveFile({
         file,
@@ -112,6 +147,7 @@ class SyncRequest {
         requestObject: self.requestObject,
         headers: self.headers,
       }, payload);
+
       ws.send(
         encodeMessage({
           file,
@@ -119,6 +155,7 @@ class SyncRequest {
           ratio: constructed.ratio,
         })
       );
+
       return await self.callbacks.onComplete({
         file,
         params: self.params,
@@ -130,7 +167,7 @@ class SyncRequest {
     }
 
     if (type === 'upload') {
-      log.debug({ file, query, params }, `Got file from client`);
+      log.trace({ file, query, params }, `[DeltaSync] Got file from client`);
       const payload = data.payload;
       await self.callbacks.saveFile({
         file,
@@ -166,10 +203,15 @@ class SyncRequest {
     });
 
     if (! stat ){
+
+      // File does not exist.. Ask for fingerprint and then just request all
       return {
         type: 'fileStatus',
-        exists: false,
         file,
+        exists: false,
+        syncRequired: true,
+        request: 'fingerprint',
+        sha256: '',
       };
     }
 
@@ -208,54 +250,91 @@ class SyncRequest {
   async constructFile(response) {
     const self = this;
     const file = response.header.file;
-    const content = await this.callbacks.loadFile({
-      file,
-      params: self.params,
-      query: self.query,
-      requestObject: self.requestObject,
-      headers: self.headers,
-    });
+    const missingChunks = response.chunks;
+    const totalSizeSent = sum(missingChunks.map(chunk => {
+      return chunk.data.length;
+    }));
+
+    const ratio = (totalSizeSent / file.size);
+
+    let content = Buffer.alloc(0);
+
+    try {
+      content = await this.callbacks.loadFile({
+        file,
+        params: self.params,
+        query: self.query,
+        requestObject: self.requestObject,
+        headers: self.headers,
+      });
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        self.log.debug({file}, `[DeltaSync] File does not exist on the server`);
+      } else {
+        throw error;
+      }
+    }
+
+
     const newFile = Buffer.alloc(file.size);
-    const missingChunks = splitChunksResponse(response);
+    this.log.trace({file},`[DeltaSync] New file allocated ${newFile.length}`)
     const chunks = this.chunks.local.concat(missingChunks);
+    this.log.trace({file},`[DeltaSync] Got all the chunks, start applying`);
 
 
-    chunks.forEach(chunk => {
-
+    chunks.forEach((chunk, i) => {
       const offset = chunk.offset;
       const size = chunk.size;
       const end = offset + size;
-
       if (chunk.exists) {
         const offset = chunk.exists.offset;
         const end = chunk.exists.end;
         chunk.data = content.subarray(offset, end);
       }
-
       newFile.fill(chunk.data, offset, end);
-    })
+    });
 
     const sha256Hash = sha256(newFile);
 
     if (sha256Hash !== file.sha256) {
-      throw new Error(`File hash does not match, expected :${file.sha256} but got ${sha256Hash}`)
+      this.log.error({ file }, `File sha256 does not match what was expected, expected: ${file.sha256} but got ${sha256Hash} `)
+      throw new Error(`File hash does not match, expected: ${file.sha256} but got ${sha256Hash}`)
     }
 
     return {
       content: newFile,
-      ratio: (response.payload.length / file.size),
+      ratio,
     };
   }
 
   async compareFingerprint(message) {
     const file = message.header.file;
     const self = this;
-    const content = await this.callbacks.loadFile({
-      file,
-      params: self.params,
-      query: self.query,
-      requestObject: self.requestObject,
-    });
+
+    const log = this.log;
+    let content = Buffer.alloc(0);
+    try {
+      content = await this.callbacks.loadFile({
+        file,
+        params: self.params,
+        query: self.query,
+        requestObject: self.requestObject,
+      });
+    } catch (error) {
+      if (error.code === 'ENOENT'){
+        log.trace({file}, `[DeltaSync] File does not exist on the server`);
+        return {
+          sha256: '',
+          required: message.header.fingerprint.hashes,
+          local: [],
+        }
+      } else {
+        throw error;
+      }
+    }
+
+    log.trace({file}, '[DeltaSync] File loaded, scanning for matching chunks');
+
     const fingerprints = message.header.fingerprint;
     const hashMap = {}
     fingerprints.hashes.forEach(value => {
@@ -264,11 +343,20 @@ class SyncRequest {
 
     const len = content.length;
     const blockSize = fingerprints.blockSize;
+    let i = 0;
+    let matchedSize = 0;
+    const matchingChunks = {}
+
+
     function isScanning(i) {
+
+      const matchRatio = (matchedSize / file.size);
+      if (matchRatio >= 0.9999){
+        return false;
+      }
+
       return (i <= len);
     }
-    const matchingChunks = {}
-    let i = 0;
 
     while (isScanning(i)) {
       const end = i + blockSize;
@@ -291,8 +379,10 @@ class SyncRequest {
             sha1: sha,
             offset: i,
             end,
-            size: chunk.length
+            size: chunk.length,
           };
+
+          matchedSize = matchedSize + chunk.length; // Calculate how much is matched
 
           // If found then stop scanning and go to end of doc.
           i = i + match.size;
@@ -301,10 +391,13 @@ class SyncRequest {
       }
       i++;
     }
+
+    log.trace({file}, '[DeltaSync] Completed scanning for files, calulcating chunks');
     const allChunks = fingerprints.hashes.map(value => {
       value.exists = matchingChunks[value.sha1] || false;
       return value;
     });
+
 
     return {
       chunks: allChunks,

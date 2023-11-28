@@ -53,7 +53,9 @@ class DeltaSync {
     const self = this;
     this.path = (opts.path === undefined) ? '/api/.delta-sync' : opts.path;
     const dir = opts.directory || '.';
-    const log = opts.log || pino();
+    const log = opts.log || pino({
+      level: 20
+    });
 
     this.preCallbacks = [];
 
@@ -61,7 +63,7 @@ class DeltaSync {
 
     this.requestObject = {};
 
-    const callbacks = defaultCallbacks(dir);
+    const callbacks = defaultCallbacks(dir, log);
 
     if (typeof opts.loadFile === 'function'){
       callbacks.loadFile = opts.loadFile;
@@ -88,8 +90,12 @@ class DeltaSync {
         params: self.params,
         query: self.query,
         headers: self.headers,
-      },`New webscoket connection`);
-      ws.on('error', log.error);
+      },`[DeltaSync] New webscoket connection`);
+      ws.on('error', (err) => {
+        log.error({
+          error: err.toString(),
+        },`[DeltaSync] Got Websocket error`);
+      });
       ws.on('message', (message, isBinary) => {
 
         if (! isBinary) return log.error('Only binary messages supported', {

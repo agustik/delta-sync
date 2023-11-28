@@ -8,7 +8,7 @@ function getFileName(file){
 }
 
 
-function defaultCallbacks(rootDir){
+function defaultCallbacks(rootDir, log){
   const callbacks = {
     fileLocation: (req) => {
       const fileName = getFileName(req.file);
@@ -17,14 +17,25 @@ function defaultCallbacks(rootDir){
     loadFile: async (req) => {
       const fileName = getFileName(req.file);
       const fileLoc = path.join(rootDir, fileName);
-      return await fs.readFile(fileLoc);
+      try {
+        return await fs.readFile(fileLoc);
+      } catch (error) {
+        log.error({error}, `[DeltaSync] Unable to open file`);
+        throw error;
+      }
     },
     saveFile: async (req, data) => {
       const fileName = getFileName(req.file);
       const fileLoc = path.join(rootDir, fileName);
       const dir = path.dirname(fileLoc);
-      await mkdirp(dir);
-      return await fs.writeFile(fileLoc, data);
+      try {
+        await mkdirp(dir);
+        return await fs.writeFile(fileLoc, data);
+      } catch (error) {
+        log.error({ error }, `[DeltaSync] Unable to write file`);
+        throw error;
+      }
+
     },
     onComplete: async (req, data) => {
       return true;

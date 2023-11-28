@@ -1,5 +1,6 @@
 
 import crc32 from 'crc/crc32';
+import async from 'async';
 
 async function sha1(content) {
   const hashBuffer = await crypto.subtle.digest('SHA-1', content);
@@ -126,7 +127,9 @@ class DeltaSync {
 
       if (message.type === 'fileStatus'){
         if (message.exists === false){
-          return this.upload()
+          return;
+          return this.sendMissingChunks(message);
+          // return this.upload()
         }
       }
 
@@ -147,53 +150,95 @@ class DeltaSync {
 
   async sendMissingChunks(message){
     const file = this.file;
+    const self = this;
     this.emittUpdate('chunks',{
       file,
       date: new Date(),
       message: 'Sending missing chunks'
     });
+
     const content = await file.arrayBuffer();
-    const chunks = message.required.map(chunkReq => {
-      const offset = chunkReq.offset;
-      const size = chunkReq.size;
-      const end = offset + size;
-      const data = content.slice(offset, end);
-      
-      return {
-        offset,
-        size,
-        data,
-        sha1: chunkReq.sha1,
-      };
-    });
+
+    const count = message.required.length;
+
+    const fileInfo = this.getFileInfo();
+
+    let i = 1;
 
 
-    const chunkMetadata = chunks.map(chunk => {
+    const chunksMetadata = message.required.map(chunk => {
       const { offset, size, sha1 } = chunk;
       return {
         offset, size, sha1
       }
     });
 
-    const header = {
-      type: 'fileChunks',
+
+    await self.sendMessage({
+      type: 'chunks-header',
+      count,
       file: this.getFileInfo(),
-      chunkMetadata,
-    };
-
-    let buffer = new ArrayBuffer(0);
-    chunks.map(chunk => {
-      buffer = appendBuffers(buffer, chunk.data);
+      chunksMetadata,
     });
 
-    // const payload = new ArrayBuffer(totalSize);
-    await this.sendMessage(header, buffer);
-    this.emittUpdate('chunks',{
-      file,
-      message: 'Done sending chunks',
-      size: buffer.byteLength,
-      count: chunks.length,
-    });
+    await async.forEachSeries(message.required, async function chunkAndTransmit(chunkReq){
+      const offset = chunkReq.offset;
+      const size = chunkReq.size;
+      const end = offset + size;
+      const buffer = content.slice(offset, end);
+
+      const header = {
+        type: 'fileChunk',
+        file: fileInfo,
+        count,
+        index: i,
+        offset,
+        size,
+        sha1: chunkReq.sha1,
+      };
+
+      await self.sendMessage(header, buffer);
+      i++;
+    })
+
+    // const chunks = message.required.map(chunkReq => {
+    //   const offset = chunkReq.offset;
+    //   const size = chunkReq.size;
+    //   const end = offset + size;
+    //   const data = content.slice(offset, end);
+      
+    //   return {
+    //     offset,
+    //     size,
+    //     data,
+    //     sha1: chunkReq.sha1,
+    //   };
+    // });
+
+    // const chunkMetadata = chunks.map(chunk => {
+    //   const { offset, size, sha1 } = chunk;
+    //   return {
+    //     offset, size, sha1
+    //   }
+    // });
+
+
+
+
+    // let buffer = new ArrayBuffer(0);
+    // await this.sendMessage(header, buffer);
+
+    // chunks.map(chunk => {
+    //   buffer = appendBuffers(buffer, chunk.data);
+    // });
+
+    // // const payload = new ArrayBuffer(totalSize);
+    // this.emittUpdate('chunks',{
+    //   file,
+    //   message: 'Done sending chunks',
+    //   size: buffer.byteLength,
+    //   count: chunks.length,
+    // });
   }
 
   async fileStatus(file) {
@@ -227,29 +272,29 @@ class DeltaSync {
   }
 
 
-  async upload(){
+  // async upload(){
 
-    const file = this.file;
-    this.emittUpdate('upload', {
-      file,
-      date: new Date(),
-      message: 'Uploading file',
-    });
-    const content = await file.arrayBuffer();
-    const hash = await this.sha256file(content);
-    const header = {
-      type: 'upload',
-      file: this.getFileInfo(),
-      sha256: hash,
-    };
+  //   const file = this.file;
+  //   this.emittUpdate('upload', {
+  //     file,
+  //     date: new Date(),
+  //     message: 'Uploading file',
+  //   });
+  //   const content = await file.arrayBuffer();
+  //   const hash = await this.sha256file(content);
+  //   const header = {
+  //     type: 'upload',
+  //     file: this.getFileInfo(),
+  //     sha256: hash,
+  //   };
 
-    await this.sendMessage(header, content);
+  //   await this.sendMessage(header, content);
 
-    this.emittUpdate('upload', {
-      file,
-      message: 'Upload complete',
-    });
-  }
+  //   this.emittUpdate('upload', {
+  //     file,
+  //     message: 'Upload complete',
+  //   });
+  // }
 
   async sha256file(content){
     this.file.sha256 = await sha256(content)

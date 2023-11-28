@@ -22,8 +22,6 @@ server.get('/api/.delta-sync/:id', async (req, res) => {
   if (!res.claimUpgrade) {
     throw new Error('Connection Must Upgrade For WebSockets');
   }
-
-  console.log('Got upgrade request', res._upgrade)
   // const upgrade = res.claimUpgrade();
 
   await deltaSync.handleUpgrade(req, req.socket, res._upgrade.head);
