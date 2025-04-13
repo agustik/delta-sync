@@ -9264,6 +9264,15 @@ function sum(arr) {
     return a + b;
   }, 0);
 }
+async function compareHeadTail(file, content) {
+  const size = file.headTailHash.size;
+  const l = file.headTailHash;
+  const head = content.slice(0, size);
+  const tail = content.slice(content.length - size, content.length);
+  const headSum = sha256(head);
+  const tailSum = sha256(tail);
+  return headSum === l.head && l.tail === tailSum;
+}
 function encodeMessage(obj) {
   obj["@timestamp"] = /* @__PURE__ */ new Date();
   obj._id = createId();
@@ -9418,6 +9427,20 @@ var SyncRequest = class {
         request: "fingerprint",
         sha256: hash
       };
+    }
+    if (file.headTailHash) {
+      const match = await compareHeadTail(file, content);
+      if (!match) {
+        return {
+          type: "fileStatus",
+          file,
+          exists: true,
+          syncRequired: true,
+          stat: stat2,
+          request: "fingerprint",
+          sha256: hash
+        };
+      }
     }
     return {
       type: "fileStatus",

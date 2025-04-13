@@ -26,6 +26,20 @@ function sum(arr){
   }, 0)
 }
 
+async function compareHeadTail(file, content){
+  const size = file.headTailHash.size;
+  const l = file.headTailHash;
+
+  const head = content.slice(0, size);
+
+  const tail = content.slice(content.length - size, content.length);
+
+  const headSum = sha256(head);
+  const tailSum = sha256(tail);
+
+  return (headSum === l.head && l.tail === tailSum);
+}
+
 function encodeMessage(obj){
 
   obj['@timestamp'] = new Date();
@@ -225,6 +239,7 @@ class SyncRequest {
 
     const hash = sha256(content);
 
+
     if (file.size !== stat.size) {
       return {
         type: 'fileStatus',
@@ -235,6 +250,24 @@ class SyncRequest {
         request: 'fingerprint',
         sha256: hash,
       };
+    }
+
+
+
+    if (file.headTailHash){
+
+      const match = await compareHeadTail(file, content);
+      if (! match ){
+        return {
+          type: 'fileStatus',
+          file,
+          exists: true,
+          syncRequired: true,
+          stat,
+          request: 'fingerprint',
+          sha256: hash,
+        };
+      }
     }
 
     return {
@@ -373,7 +406,6 @@ class SyncRequest {
 
         if (sha === match.sha1) {
 
-          // console.log('Got match', sha);
           // Note where the chunk was matched.
           matchingChunks[sha] = {
             sha1: sha,

@@ -4027,6 +4027,7 @@ function toHex(hashBuffer) {
   return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 var MAX_BLOCKSIZE = 102400;
+var KILOBYTE = 1024;
 function getBlockSize(fileLength) {
   const n = Math.sqrt(fileLength);
   const m = Math.ceil(n);
@@ -4074,6 +4075,8 @@ var DeltaSync = class {
     this.socket.binaryType = "arraybuffer";
     this.file = file;
     this.bufferSize = 0;
+    this.calculateHeadTail = opts.calculateHeadTail === void 0 ? true : opts.calculateHeadTail;
+    this.headTailSize = KILOBYTE * 10;
     const getBufferStatus = opts.getBufferStatus || function() {
     };
     let lastBufferMessageId = false;
@@ -4127,6 +4130,7 @@ var DeltaSync = class {
       if (message.type === "request-chunks") {
         return this.sendMissingChunks(message);
       }
+      console.log("[DeltaSync] No action required", message);
     });
   }
   emittUpdate(messageType, message) {
@@ -4145,7 +4149,7 @@ var DeltaSync = class {
     });
     const content = await file.arrayBuffer();
     const count = message.required.length;
-    const fileInfo = this.getFileInfo();
+    const fileInfo = await this.getFileInfo();
     let i = 1;
     const chunksMetadata = message.required.map((chunk) => {
       const { offset, size, sha1: sha12 } = chunk;
@@ -4158,7 +4162,7 @@ var DeltaSync = class {
     await self2.sendMessage({
       type: "chunks-header",
       count,
-      file: this.getFileInfo(),
+      file: await this.getFileInfo(),
       chunksMetadata
     });
     await index.forEachSeries(message.required, async function chunkAndTransmit(chunkReq) {
@@ -4186,11 +4190,26 @@ var DeltaSync = class {
     });
     const header = {
       type: "fileStatus",
-      file: this.getFileInfo()
+      file: await this.getFileInfo()
     };
     return await this.sendMessage(header, false);
   }
-  getFileInfo() {
+  async getHeadTailHashes() {
+    const file = this.file;
+    if (this.headTailHash) {
+      return this.headTailHash;
+    }
+    const size = this.headTailSize;
+    const first4 = file.slice(0, size);
+    const last4 = file.slice(file.size - size, file.size);
+    this.headTailHash = {
+      size,
+      head: await sha256(await first4.arrayBuffer()),
+      tail: await sha256(await last4.arrayBuffer())
+    };
+    return this.headTailHash;
+  }
+  async getFileInfo() {
     const file = this.file;
     this.emittUpdate("file-info", {
       file,
@@ -4202,29 +4221,10 @@ var DeltaSync = class {
       type: file.type,
       webkitRelativePath: file.webkitRelativePath,
       lastModified: file.lastModified,
-      sha256: file.sha256
+      sha256: file.sha256,
+      headTailHash: await this.getHeadTailHashes()
     };
   }
-  // async upload(){
-  //   const file = this.file;
-  //   this.emittUpdate('upload', {
-  //     file,
-  //     date: new Date(),
-  //     message: 'Uploading file',
-  //   });
-  //   const content = await file.arrayBuffer();
-  //   const hash = await this.sha256file(content);
-  //   const header = {
-  //     type: 'upload',
-  //     file: this.getFileInfo(),
-  //     sha256: hash,
-  //   };
-  //   await this.sendMessage(header, content);
-  //   this.emittUpdate('upload', {
-  //     file,
-  //     message: 'Upload complete',
-  //   });
-  // }
   async sha256file(content) {
     this.file.sha256 = await sha256(content);
     return this.file.sha256;
@@ -4232,6 +4232,16 @@ var DeltaSync = class {
   async sendMessage(header, content) {
     const message = serializeMessage(header, content);
     this.bufferSize += message.byteLength;
+    if (this.socket.readyState !== 1 && !this.disconnected) {
+      console.error("[DeltaSync] Server disconnected", this.socket);
+      this.disconnected = true;
+      this.emittUpdate("error", {
+        file: this.file,
+        date: /* @__PURE__ */ new Date(),
+        message: "Socket disconnected"
+      });
+      return;
+    }
     return this.socket.send(message);
   }
   async sync() {
@@ -4260,7 +4270,7 @@ var DeltaSync = class {
     const fingerprint = await this.getFingerprint(file);
     const header = {
       type: "fingerprint",
-      file: this.getFileInfo(),
+      file: await this.getFileInfo(),
       fingerprint
     };
     await this.sendMessage(header, false);

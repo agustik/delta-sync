@@ -1,7 +1,11 @@
 import restify from 'restify';
 import DeltaSync from '../../src/server/index.mjs';
+import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const server = restify.createServer({
   handleUpgrades: true
@@ -10,6 +14,7 @@ const server = restify.createServer({
 
 const deltaSync = new DeltaSync({
   path: false,
+  directory: '../files',
 });
 
 
@@ -59,7 +64,18 @@ server.pre((req, res, next) => {
   return next();
 })
 
-server.get('/*',  restify.plugins.serveStaticFiles('./'));
+// server.get('/*',  restify.plugins.serveStaticFiles('./'));
+server.get('/',  async (req, res) => {
+  const content = await fs.readFile(path.join(__dirname, '../index.html'));
+  res.sendRaw(content)
+});
+
+
+server.get('/client/index.js',  async (req, res) => {
+  const content = await fs.readFile(path.join(__dirname, '../../client/index.js'));
+  res.header('content-type', 'application/javascript')
+  res.sendRaw(content)
+});
 
 
 const port = 9000;

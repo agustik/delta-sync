@@ -19,6 +19,7 @@ function toHex(hashBuffer) {
 }
 
 const MAX_BLOCKSIZE = 102400;
+const KILOBYTE = 1024;
 
 function getBlockSize(fileLength) {
 
@@ -65,6 +66,7 @@ function getHost() {
   return self.location.host;
 }
 
+
 class DeltaSync {
   constructor(file, opts){
     const proto = getProtocol();
@@ -74,6 +76,8 @@ class DeltaSync {
     this.socket.binaryType = 'arraybuffer';
     this.file = file;
     this.bufferSize = 0;
+    this.calculateHeadTail = (opts.calculateHeadTail === undefined) ? true : opts.calculateHeadTail;
+    this.headTailSize = KILOBYTE * 10; // 10kb
     const getBufferStatus = opts.getBufferStatus || function (){};
 
     let lastBufferMessageId = false;
@@ -136,6 +140,8 @@ class DeltaSync {
       if (message.type === 'request-chunks'){
         return this.sendMissingChunks(message);
       }
+
+      console.log('[DeltaSync] No action required', message);
     })
   }
 
@@ -161,7 +167,7 @@ class DeltaSync {
 
     const count = message.required.length;
 
-    const fileInfo = this.getFileInfo();
+    const fileInfo = await this.getFileInfo();
 
     let i = 1;
 
@@ -177,7 +183,7 @@ class DeltaSync {
     await self.sendMessage({
       type: 'chunks-header',
       count,
-      file: this.getFileInfo(),
+      file: await this.getFileInfo(),
       chunksMetadata,
     });
 
@@ -200,45 +206,6 @@ class DeltaSync {
       await self.sendMessage(header, buffer);
       i++;
     })
-
-    // const chunks = message.required.map(chunkReq => {
-    //   const offset = chunkReq.offset;
-    //   const size = chunkReq.size;
-    //   const end = offset + size;
-    //   const data = content.slice(offset, end);
-      
-    //   return {
-    //     offset,
-    //     size,
-    //     data,
-    //     sha1: chunkReq.sha1,
-    //   };
-    // });
-
-    // const chunkMetadata = chunks.map(chunk => {
-    //   const { offset, size, sha1 } = chunk;
-    //   return {
-    //     offset, size, sha1
-    //   }
-    // });
-
-
-
-
-    // let buffer = new ArrayBuffer(0);
-    // await this.sendMessage(header, buffer);
-
-    // chunks.map(chunk => {
-    //   buffer = appendBuffers(buffer, chunk.data);
-    // });
-
-    // // const payload = new ArrayBuffer(totalSize);
-    // this.emittUpdate('chunks',{
-    //   file,
-    //   message: 'Done sending chunks',
-    //   size: buffer.byteLength,
-    //   count: chunks.length,
-    // });
   }
 
   async fileStatus(file) {
@@ -249,18 +216,41 @@ class DeltaSync {
 
     const header = {
       type: 'fileStatus',
-      file: this.getFileInfo(),
+      file: await this.getFileInfo(),
     };
 
     return await this.sendMessage(header, false);
   }
 
-  getFileInfo(){
+  async getHeadTailHashes(){
+
+    const file = this.file;
+
+
+    if (this.headTailHash){
+      return this.headTailHash;
+    }
+
+    const size = this.headTailSize;
+    const first4 = file.slice(0, size);
+    const last4 = file.slice(file.size - size, file.size);
+
+    this.headTailHash = {
+      size,
+      head: await sha256(await first4.arrayBuffer()),
+      tail: await sha256(await last4.arrayBuffer()),
+    }
+
+    return this.headTailHash;
+  }
+
+  async getFileInfo(){
     const file = this.file;
     this.emittUpdate('file-info', {
       file,
       message: 'Sending file info',
     });
+
     return {
       name: file.name,
       size: file.size,
@@ -268,33 +258,9 @@ class DeltaSync {
       webkitRelativePath: file.webkitRelativePath,
       lastModified: file.lastModified,
       sha256: file.sha256,
+      headTailHash: await this.getHeadTailHashes(),
     };
   }
-
-
-  // async upload(){
-
-  //   const file = this.file;
-  //   this.emittUpdate('upload', {
-  //     file,
-  //     date: new Date(),
-  //     message: 'Uploading file',
-  //   });
-  //   const content = await file.arrayBuffer();
-  //   const hash = await this.sha256file(content);
-  //   const header = {
-  //     type: 'upload',
-  //     file: this.getFileInfo(),
-  //     sha256: hash,
-  //   };
-
-  //   await this.sendMessage(header, content);
-
-  //   this.emittUpdate('upload', {
-  //     file,
-  //     message: 'Upload complete',
-  //   });
-  // }
 
   async sha256file(content){
     this.file.sha256 = await sha256(content)
@@ -305,6 +271,17 @@ class DeltaSync {
   async sendMessage(header, content){
     const message = serializeMessage(header, content);
     this.bufferSize += message.byteLength;
+    
+    if (this.socket.readyState !== 1 && ! this.disconnected ){
+      console.error('[DeltaSync] Server disconnected', this.socket); 
+      this.disconnected = true;
+      this.emittUpdate('error', {
+        file: this.file,
+        date: new Date(),
+        message: 'Socket disconnected',
+      });
+      return;
+    }
     return this.socket.send(message);
   }
 
@@ -341,7 +318,7 @@ class DeltaSync {
     const fingerprint = await this.getFingerprint(file);
     const header = {
       type: 'fingerprint',
-      file: this.getFileInfo(),
+      file: await this.getFileInfo(),
       fingerprint,
     };
 
