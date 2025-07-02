@@ -41,7 +41,6 @@ async function compareHeadTail(file, content){
 }
 
 function encodeMessage(obj){
-
   obj['@timestamp'] = new Date();
   obj._id = createId();
   return JSON.stringify(obj);
@@ -103,7 +102,7 @@ class SyncRequest {
     const params = self.params;
 
     if (type === 'fileStatus') {
-      log.trace({ file, query, params }, `[DeltaSync] Checking file status`);
+      log.debug({ file, query, params }, `[DeltaSync] Checking file status`);
 
       const response = await self.fileStatus(data);
       return ws.send(
@@ -112,9 +111,9 @@ class SyncRequest {
     }
 
     if (type === 'fingerprint') {
-      log.trace({ file, query, params }, `[DeltaSync] Scanning file for fingerprints`);
+      log.debug({ file, query, params }, `[DeltaSync] Scanning file for fingerprints`);
       const chunks = await self.compareFingerprint(data);
-      log.trace({ file, query, params }, `[DeltaSync] Got the missing chunks`);
+      log.debug({ file, query, params }, `[DeltaSync] Got the missing chunks`);
 
       self.chunks = chunks;
 
@@ -126,7 +125,7 @@ class SyncRequest {
     }
 
     if (type === 'chunks-header'){
-      log.trace( `[DeltaSync] Got the chunk header, chunks incomming!`);
+      log.debug( `[DeltaSync] Got the chunk header, chunks incomming!`);
 
       this.chunksMetadata = data.header.chunksMetadata;
       return ;
@@ -143,7 +142,7 @@ class SyncRequest {
         return;
       }
 
-      log.trace(`[DeltaSync] Got all chunks, will construct file`);
+      log.debug(`[DeltaSync] Got all chunks, will construct file`);
 
 
       data.header.chunksMetadata = self.chunksMetadata; // Apply it before construction
@@ -181,7 +180,7 @@ class SyncRequest {
     }
 
     if (type === 'upload') {
-      log.trace({ file, query, params }, `[DeltaSync] Got file from client`);
+      log.debug({ file, query, params }, `[DeltaSync] Got file from client`);
       const payload = data.payload;
       await self.callbacks.saveFile({
         file,
@@ -310,9 +309,9 @@ class SyncRequest {
 
 
     const newFile = Buffer.alloc(file.size);
-    this.log.trace({file},`[DeltaSync] New file allocated ${newFile.length}`)
+    this.log.debug({file},`[DeltaSync] New file allocated ${newFile.length}`)
     const chunks = this.chunks.local.concat(missingChunks);
-    this.log.trace({file},`[DeltaSync] Got all the chunks, start applying`);
+    this.log.debug({file},`[DeltaSync] Got all the chunks, start applying`);
 
 
     chunks.forEach((chunk, i) => {
@@ -343,7 +342,6 @@ class SyncRequest {
   async compareFingerprint(message) {
     const file = message.header.file;
     const self = this;
-
     const log = this.log;
     let content = Buffer.alloc(0);
     try {
@@ -355,7 +353,7 @@ class SyncRequest {
       });
     } catch (error) {
       if (error.code === 'ENOENT'){
-        log.trace({file}, `[DeltaSync] File does not exist on the server`);
+        log.debug({file}, `[DeltaSync] File does not exist on the server`);
         return {
           sha256: '',
           required: message.header.fingerprint.hashes,
@@ -366,7 +364,7 @@ class SyncRequest {
       }
     }
 
-    log.trace({file}, '[DeltaSync] File loaded, scanning for matching chunks');
+    log.debug({file}, '[DeltaSync] File loaded, scanning for matching chunks');
 
     const fingerprints = message.header.fingerprint;
     const hashMap = {}
@@ -378,27 +376,31 @@ class SyncRequest {
     const blockSize = fingerprints.blockSize;
     let i = 0;
     let matchedSize = 0;
-    const matchingChunks = {}
-
+    const matchingChunks = {};
+    const start = new Date();
+    let loops = 0;
 
     function isScanning(i) {
-
       const matchRatio = (matchedSize / file.size);
       if (matchRatio >= 0.9999){
         return false;
       }
 
+      const matchCount = Object.keys(matchingChunks).length;
+
+      if (matchCount === 0 && loops > blockSize){
+        log.info({file}, `[DeltaSync] Already scanned N+1 without no matches ${blockSize}, file has changed to much`);
+        return false;
+      }
       return (i <= len);
     }
 
     while (isScanning(i)) {
       const end = i + blockSize;
-      const chunk = content.subarray(i, end);
-
+      let chunk = content.subarray(i, end);
       // Easy low cost CRC32 checksum.
       const hash = hashChunk(chunk);
       const match = hashMap[hash];
-
 
       if (match) {
         // If it matches then run stronger sha1 checksum on the chunk
@@ -418,13 +420,25 @@ class SyncRequest {
 
           // If found then stop scanning and go to end of doc.
           i = i + match.size;
+          chunk = null;
           continue;
         }
       }
+
+
+
       i++;
+      loops++;
+      chunk = null;
+      if (loops % 250 === 0){
+        await new Promise(resolve => setImmediate(resolve)); 
+      }
     }
 
-    log.trace({file}, '[DeltaSync] Completed scanning for files, calulcating chunks');
+
+    const took = new Date() - start;
+
+    log.debug({file, took}, '[DeltaSync] Completed scanning for files, calulcating chunks');
     const allChunks = fingerprints.hashes.map(value => {
       value.exists = matchingChunks[value.sha1] || false;
       return value;

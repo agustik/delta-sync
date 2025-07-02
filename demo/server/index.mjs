@@ -3,6 +3,7 @@ import DeltaSync from '../../src/server/index.mjs';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import pino from 'pino';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,9 @@ const server = restify.createServer({
 const deltaSync = new DeltaSync({
   path: false,
   directory: '../files',
+  log: pino({
+    level: 10
+  })
 });
 
 
